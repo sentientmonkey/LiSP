@@ -1,14 +1,34 @@
 #lang racket/base
 
-(require scheme/mpair)
+(require compatibility/mlist)
 (require rackunit)
+
+(provide chapter1-scheme)
+
+(define (mcaar l)
+  (mcar (mcar l)))
+
+(define (mcdar l)
+  (mcdr (mcar l)))
 
 ; 1.3 Evaluating Atoms
 (define (atom? x)
     (not (pair? x)))
 
-; 1.4 Evaluating Forms
+(define the-false-value (cons "false" "boolean"))
+
+; Exercise 1.1
+; add function tracing
 (define (evaluate e env)
+  (begin
+    (let ([r (ievaluate e env)])
+      (display e)
+      (display " ≡ ")
+      (displayln r) r)))
+
+; 1.4 Evaluating Forms
+
+(define (ievaluate e env)
   (if (atom? e)
     (cond [(symbol? e) (lookup e env)]
           [[(or (number? e) (string? e) (char? e) (boolean? e) (vector? e)) e]]
@@ -16,8 +36,8 @@
     (case (car e)
       [(quote)  (cadr e)]
       [(if)     (if (evaluate (cadr e) env)
-                    (evaluate (caddr e) env)
-                    (evaluate (cadddr e) env))]
+                  (evaluate (caddr e) env)
+                  (evaluate (cadddr e) env))]
       [(begin)  (eprogn (cdr e) env)]
       [(set!)   (update! (cadr e) env (evaluate (caddr e) env))]
       [(lambda) (make-function (cadr e) (cddr e) env)]
@@ -32,29 +52,39 @@
         (evaluate (car exps) env))
     '()))
 
+; (define (evlis exps env)
+;   (if (pair? exps)
+;     (cons (evaluate (car exps) env)
+;           (evlis (cdr exps) env))
+;     '()))
+
+; Ex 1.2 evlis
 (define (evlis exps env)
-  (if (pair? exps)
-    (cons (evaluate (car exps) env)
-          (evlis (cdr exps) env))
-    '()))
+  (begin
+    (if (pair? exps)
+      (if (pair? (cdr exps))
+        (cons (evaluate (car exps) env)
+              (evlis (cdr exps) env))
+        (list (evaluate (car exps) env)))
+    '())))
 
 ; 1.5 Representing the Environment
 (define (lookup id env)
-  (if (pair? env)
-    (if (eq? (caar env) id)
-        (cadr env)
-        (lookup id (cdr env)))
+  (if (mpair? env)
+    (if (eq? (mcaar env) id)
+        (mcdar env)
+        (lookup id (mcdr env)))
     (error "No such binding" id)))
 
 (define (update! id env value)
-  (if (pair? env)
-    (if (eq? (caar env) id)
-        (begin (set-cdr! (car env) value)
+  (if (mpair? env)
+    (if (eq? (mcaar env) id)
+        (begin (set-mcdr! (mcar env) value)
                value)
-        (update! id (cdr env) value))
+        (update! id (mcdr env) value))
     (error "No such binding" id)))
 
-(define env.init '())
+(define env.init (mcons '() '()))
 
 (define (extend env variables values)
   (cond [(pair? variables)
@@ -66,7 +96,7 @@
          (if (null? values)
             env
             (error "Too many values"))]
-        [(symbol? variables) (cons (cons variables values) env)]))
+        [(symbol? variables) (mcons (cons variables values) env)]))
 
 ; 1.6 Representing Functions
 (define (invoke fn args)
@@ -84,10 +114,10 @@
 (define-syntax definitial
   (syntax-rules ()
     ((definitial name)
-     (begin (set! env.global (cons (cons 'name 'void) env.global))
+     (begin (set! env.global (mcons (mcons 'name 'void) env.global))
             'name))
      ((definitial name value)
-      (begin (set! env.global (cons (cons 'name value) env.global))
+      (begin (set! env.global (mcons (mcons 'name value) env.global))
              'name))))
 
 (define-syntax defprimitive
@@ -111,13 +141,20 @@
 
 (defprimitive cons cons 2)
 (defprimitive car car 1)
-(defprimitive set-cdr! set-cdr! 2)
+(defprimitive set-mcdr! set-mcdr! 2)
 (defprimitive + + 2)
 (defprimitive eq? eq? 2)
 (defprimitive < < 2)
 
 (define (chapter1-scheme)
   (define (toplevel)
-    (display (evalute (read) env.global))
+    (display (evaluate (read) env.global))
     (toplevel))
   (toplevel))
+
+(check-equal? (evaluate 't env.global) #t)
+(check-equal? (evaluate 'f env.global) the-false-value)
+(check-equal? (evaluate '(car '(1 2)) env.global) 1)
+(check-equal? (evaluate '(cons '1 '()) env.global) '(1))
+(check-equal? (evaluate '(cons '1 '()) env.global) '(1))
+; (check-equal? (evaluate '(+ 1 1) env.global) 2)
