@@ -19,19 +19,19 @@
 
 ; Exercise 1.1
 ; add function tracing
-(define (evaluate e env)
+(define (trace args fn)
   (begin
-    (let ([r (ievaluate e env)])
-      (display e)
-      (display " ≡ ")
+    (displayln args)
+    (let ([r (fn args)])
+      (display "-> ")
       (displayln r) r)))
 
 ; 1.4 Evaluating Forms
 
-(define (ievaluate e env)
+(define (evaluate e env)
   (if (atom? e)
     (cond [(symbol? e) (lookup e env)]
-          [[(or (number? e) (string? e) (char? e) (boolean? e) (vector? e)) e]]
+          [(or (number? e) (string? e) (char? e) (boolean? e) (vector? e)) e]
           [else (error "Cannot evaluate" e)])
     (case (car e)
       [(quote)  (cadr e)]
@@ -41,8 +41,10 @@
       [(begin)  (eprogn (cdr e) env)]
       [(set!)   (update! (cadr e) env (evaluate (caddr e) env))]
       [(lambda) (make-function (cadr e) (cddr e) env)]
-      [else     (invoke (evaluate (car e) env)
-                        (evlis (cdr e) env))])))
+      [else     (trace e
+                       (lambda (e)
+                         (invoke (evaluate (car e) env)
+                                 (evlis (cdr e) env))))])))
 
 (define (eprogn exps env)
   (if (pair? exps)
@@ -98,6 +100,10 @@
             (error "Too many values"))]
         [(symbol? variables) (mcons (cons variables values) env)]))
 
+; Exercise 1.3 extend
+; (define (extend env names values)
+;   (cons (cons names values) env))
+
 ; 1.6 Representing Functions
 (define (invoke fn args)
   (if (procedure? fn)
@@ -122,6 +128,11 @@
 
 (define-syntax defprimitive
   (syntax-rules ()
+    ; Exercise 
+    ((defprimitive name value)
+     (definitial name
+        (lambda (values)
+          (apply value values))))
     ((defprimitive name value arity)
      (definitial name
         (lambda (values)
@@ -145,6 +156,7 @@
 (defprimitive + + 2)
 (defprimitive eq? eq? 2)
 (defprimitive < < 2)
+(defprimitive list list)
 
 (define (chapter1-scheme)
   (define (toplevel)
@@ -155,6 +167,10 @@
 (check-equal? (evaluate 't env.global) #t)
 (check-equal? (evaluate 'f env.global) the-false-value)
 (check-equal? (evaluate '(car '(1 2)) env.global) 1)
-(check-equal? (evaluate '(cons '1 '()) env.global) '(1))
-(check-equal? (evaluate '(cons '1 '()) env.global) '(1))
-; (check-equal? (evaluate '(+ 1 1) env.global) 2)
+(check-equal? (evaluate '(cons 1 '()) env.global) '(1))
+(check-equal? (evaluate '(+ 1 1) env.global) 2)
+(check-equal? (evaluate '(< 1 2) env.global) #t)
+(check-equal? (evaluate '(eq? 1 1) env.global) #t)
+(check-equal? (evaluate '(list 1 1) env.global) '(1 1))
+(check-equal? (evaluate '(list 1) env.global) '(1))
+(check-equal? (evaluate '(if #t 1 2) env.global) 1)
