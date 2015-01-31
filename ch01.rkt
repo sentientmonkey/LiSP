@@ -128,7 +128,7 @@
 
 (define-syntax defprimitive
   (syntax-rules ()
-    ; Exercise 
+    ; Exercise 1.6 add non-arity defprimitive
     ((defprimitive name value)
      (definitial name
         (lambda (values)
@@ -155,8 +155,13 @@
 (defprimitive set-mcdr! set-mcdr! 2)
 (defprimitive + + 2)
 (defprimitive eq? eq? 2)
-(defprimitive < < 2)
+; Exercise 1.6 list
 (defprimitive list list)
+; (defprimitive < < 2)
+
+; Exercise 1.5
+; Not sure if this is the right solution, but adding a primitive of a lambda that compares and returns #t or the-false-value
+(defprimitive < (lambda (n m) (if (< n m) #t the-false-value)) 2)
 
 (define (chapter1-scheme)
   (define (toplevel)
@@ -174,3 +179,5 @@
 (check-equal? (evaluate '(list 1 1) env.global) '(1 1))
 (check-equal? (evaluate '(list 1) env.global) '(1))
 (check-equal? (evaluate '(if #t 1 2) env.global) 1)
+
+(check-equal? (evaluate '(< 2 1) env.global) the-false-value)
