@@ -3,6 +3,7 @@
 (require compatibility/mlist)
 (require mzlib/compat)
 (require rackunit)
+(require racket/trace)
 (require profile)
 
 (provide chapter1-scheme)
@@ -22,7 +23,7 @@
 
 ; Exercise 1.1
 ; add function tracing
-(define (trace args fn)
+(define (e.trace args fn)
   (begin
     (displayln args)
     (let ([r (fn args)])
@@ -43,7 +44,7 @@
       [(begin)  (eprogn (cdr e) env)]
       [(set!)   (update! (cadr e) env (evaluate (caddr e) env))]
       [(lambda) (make-function (cadr e) (cddr e) env)]
-      [else     (trace e
+      [else     (e.trace e
                        (lambda (e)
                          (invoke (evaluate (car e) env)
                                  (evlis (cdr e) env))))])))
@@ -210,23 +211,28 @@
 ; Shallow functions with a stack
 (define (s.make-function variables body env)
   (lambda (values current.env)
-    (let ([old-bindings
-            (map (lambda (var val)
-                   (let ([old-value (getprop var 'apval)])
-                     (putprop var 'aplval val)
-                     (cons var old-value)))
-                 variables
-                 values)])
+    (begin
+      (for-each (lambda (b)
+                  (let ([old-values (getprop (car b) 'apval)])
+                    (putprop (car b) 'apval (cons (car old-values) old-values))))
+                variables)
       (let ([result (eprogn body current.env)])
-        (for-each (lambda (b) (putprop (car b) 'apval (cdr b)))
-                  old-bindings)
+        (for-each (lambda (b)
+                    (let ([old-values (getprop (car b) 'apval)])
+                      (putprop (car b) 'apval (cdr old-values))))
+                  variables)
         result))))
 
 (define (s.lookup id env)
-  (getprop id 'apval))
+  (if (null? (getprop id 'apval))
+    (error "No such binding for id")
+    (car (getprop id 'apval))))
 
 (define (s.update! id env value)
-  (putprop id 'apval value))
+  (let ([existing (getprop id 'apval)])
+    (if (not existing)
+      (putprop id 'apval (list value))
+      (putprop id 'apval (cons value (cdr existing))))))
 
 (define (s.evaluate e env)
   (if (atom? e)
@@ -239,9 +245,9 @@
                   (s.evaluate (caddr e) env)
                   (s.evaluate (cadddr e) env))]
       [(begin)  (eprogn (cdr e) env)]
-      [(set!)   (update! (cadr e) env (s.evaluate (caddr e) env))]
+      [(set!)   (s.update! (cadr e) env (s.evaluate (caddr e) env))]
       [(lambda) (s.make-function (cadr e) (cddr e) env)]
-      [else     (trace e
+      [else     (e.trace e
                        (lambda (e)
                          (invoke (s.evaluate (car e) env)
                                  (s.evlis (cdr e) env))))])))
@@ -257,9 +263,10 @@
 
 (s.update! 't env.global #t)
 (s.update! 'f env.global the-false-value)
-
-(check-equal? (s.lookup 't env.global) #t)
 (check-equal? (s.lookup 'f env.global) the-false-value)
+(check-equal? (s.evaluate 't env.global) #t)
+(s.evaluate '(set! x 1) env.global)
+(check-equal? (s.evaluate 'x env.global) 1)
 
 ; Exercise 1.10
 ; Not sure how to performance benchmark racket yet
