@@ -9,4 +9,7 @@ test:
 $(targets):
 	@time raco test $@.rkt
 
+run:
+	rlwrap racket -i -t $(files)
+
 all: $(targets)
