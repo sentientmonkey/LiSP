@@ -193,7 +193,9 @@
 (check-equal? (evaluate '(list 1) env.global) '(1))
 
 ; Exercise 1.7
-; call/cc
+(check-equal? (call/cc (lambda (r) (r 2) 3)) 2)
+;(check-equal? (evaluate '(call/cc (lambda (r) (r 2) 3)) env.global) 3)
+; How do we impelemnt call/cc?
 
 ; Exercise 1.9
 (defprimitive end exit)
